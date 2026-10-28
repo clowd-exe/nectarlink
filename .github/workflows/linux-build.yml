@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Builds the Linux x86_64 tarball on a GitHub runner, so a low-power PC
+# doesn't have to compile it. Package layout and Qt bundling are the same as
+# the release workflow's linux job.
+name: Linux build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  QT_VERSION: "6.12.0"
+
+jobs:
+  linux:
+    name: Linux tarball (x86_64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Install system build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libgl1-mesa-dev libx11-dev libxcb1-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libfontconfig1-dev \
+            libfreetype-dev libdbus-1-dev libxtst-dev file desktop-file-utils appstream
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          modules: qtshadertools qtwaylandcompositor
+          cache: true
+          aqtsource: git+https://github.com/miurahr/aqtinstall.git
+      - name: Build
+        run: cargo build --release -p nectarlink-desktop
+      - name: Package the tarball
+        run: ./desktop/packaging/linux/build-tarball.sh
+      - name: Check that the packaged app starts
+        run: |
+          mkdir -p /tmp/tarball && tar -xzf dist/*.tar.gz -C /tmp/tarball
+          /tmp/tarball/*/nectarlink-desktop --version
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nectarlink-linux
+          path: dist/*.tar.gz
