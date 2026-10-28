@@ -1,11 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Builds the Linux x86_64 tarball on a GitHub runner, so a low-power PC
-# doesn't have to compile it. Package layout and Qt bundling are the same as
-# the release workflow's linux job.
+# doesn't have to compile it. It always checks out the upstream project, so
+# this fork only carries the workflow and never needs syncing.
 name: Linux build
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Upstream branch or tag to build"
+        required: false
+        default: main
 
 permissions:
   contents: read
@@ -20,6 +25,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+        with:
+          repository: thtbee/nectarlink
+          ref: ${{ inputs.ref }}
       - name: Install the pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
       - name: Install system build dependencies
